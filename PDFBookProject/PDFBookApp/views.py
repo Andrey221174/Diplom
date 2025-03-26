@@ -6,9 +6,13 @@ from django.urls import reverse_lazy
 from django.views.generic.edit import CreateView
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
-from .forms import BookUploadForm, ProfileForm
+from .forms import BookUploadForm, ProfileForm, CustomUserForm
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import get_user_model
+from django.contrib.auth import login
+from .forms import CustomAuthenticationForm
+from django.contrib.auth import authenticate
 
 class BookListView(ListView):
     model = Book
@@ -23,12 +27,12 @@ class BookListView(ListView):
         return queryset
 
 class UserRegisterView(CreateView):
-    form_class = UserCreationForm
+    form_class = CustomUserForm
     template_name = 'PDFBookApp/register.html'
     success_url = reverse_lazy('PDFBookApp:login')
 
 class UserLogin(auth_views.LoginView):
-    form_class = AuthenticationForm
+    form_class = CustomAuthenticationForm
     template_name = 'PDFBookApp/login.html'
     next_page = reverse_lazy('PDFBookApp:book-list')
 
@@ -45,7 +49,7 @@ def upload_book(request):
 
 @login_required
 def profile_view(request):
-    user = request.user
+    user = get_user_model()
     return render(request, 'PDFBookApp/profile.html', {'user': user})
 
 @login_required
@@ -62,6 +66,20 @@ def edit_profile_view(request):
 
 @login_required
 def user_profile_view(request):
-    user = request.user
+    user = get_user_model()
     marked_books = user.marked_books.all()  # Получаем все помеченные книги пользователя
     return render(request, 'PDFBookApp/profile.html', {'marked_books': marked_books})
+
+def custom_login_view(request):
+    if request.method == 'POST':
+        form = CustomAuthenticationForm(request.POST)
+        if form.is_valid():
+            username = form.cleaned_data['username']
+            password = form.cleaned_data['password']
+            user = authenticate(username=username, password=password)
+            if user is not None:
+                login(request, user)
+                return redirect('PDFBookApp:profile')  # Замените на ваш URL для домашней страницы
+    else:
+        form = CustomAuthenticationForm()
+    return render(request, 'PDFBookApp/login.html', {'form': form})
